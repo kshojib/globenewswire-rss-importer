@@ -33,9 +33,9 @@ A WordPress plugin that automatically imports press releases from a GlobeNewswir
 
 Navigate to **Tools → GlobeNewswire Import**:
 
-| Setting | Description |
-|---|---|
-| **Feed URL** | The GlobeNewswire RSS feed URL to import from |
+| Setting                  | Description                                                               |
+| ------------------------ | ------------------------------------------------------------------------- |
+| **Feed URL**             | The GlobeNewswire RSS feed URL to import from                             |
 | **Auto-Import Schedule** | How often WP-Cron runs the import (hourly / twice daily / daily / weekly) |
 
 The next scheduled cron run time is displayed below the schedule dropdown.
@@ -50,17 +50,18 @@ When an import runs, each feed item is checked against existing `press-releases`
 
 ## Post Meta Saved
 
-| Meta Key | Value |
-|---|---|
-| `_gnw_guid` | RSS item GUID |
-| `_gnw_source_url` | Original GlobeNewswire article URL |
-| `_links_to` | Same URL (Page Links To plugin) |
-| `_links_to_target` | `custom` |
-| `_links_to_target_new_window` | `1` (opens in new tab) |
+| Meta Key                      | Value                              |
+| ----------------------------- | ---------------------------------- |
+| `_gnw_guid`                   | RSS item GUID                      |
+| `_gnw_source_url`             | Original GlobeNewswire article URL |
+| `_links_to`                   | Same URL (Page Links To plugin)    |
+| `_links_to_target`            | `custom`                           |
+| `_links_to_target_new_window` | `1` (opens in new tab)             |
 
 ## Import Log
 
 The admin page shows the last 50 import runs with:
+
 - Date / time
 - Status (Success / Error)
 - Number of posts imported
