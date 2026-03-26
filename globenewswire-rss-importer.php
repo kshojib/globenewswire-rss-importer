@@ -2,8 +2,8 @@
 /**
  * Plugin Name: GlobeNewswire Importer (Press Releases)
  * Description: Import GlobeNewswire RSS into press-releases CPT with Page Links To support
- * Author: Shojib Khan
- * Author URI: https://shojibkhan.com
+ * Author: Shojib Khan (8Scope)
+ * Author URI: https://8scope.com/
  */
 
 if (!defined('ABSPATH')) exit;
@@ -20,6 +20,7 @@ class GNW_Importer {
         add_filter('cron_schedules',             [$this, 'add_cron_schedules']);
         add_action('update_option_gnw_cron_schedule', [$this, 'reschedule_cron'], 10, 2);
         add_action('admin_post_gnw_clear_log',           [$this, 'clear_log']);
+        add_action('admin_init',                         [$this, 'maybe_spawn_cron']);
 
         $this->maybe_schedule_cron();
     }
@@ -62,6 +63,17 @@ class GNW_Importer {
     private function maybe_schedule_cron() {
         if ( ! wp_next_scheduled('gnw_import_cron') ) {
             wp_schedule_event( time(), $this->get_schedule(), 'gnw_import_cron' );
+        }
+    }
+
+    /**
+     * On every admin page load, tell WordPress to process any due cron events.
+     * This is the reliable workaround for low-traffic / local sites where
+     * WP-Cron never fires naturally.
+     */
+    public function maybe_spawn_cron() {
+        if ( isset( $_GET['page'] ) && $_GET['page'] === 'gnw-import' ) {
+            spawn_cron();
         }
     }
 
@@ -300,6 +312,56 @@ class GNW_Importer {
                 submit_button('Save Settings');
                 ?>
             </form>
+
+            <hr>
+
+            <h2>Cron Health</h2>
+            <?php
+            $cron_disabled = defined('DISABLE_WP_CRON') && DISABLE_WP_CRON;
+            $next_ts       = wp_next_scheduled('gnw_import_cron');
+            $now           = time();
+
+            if ( $cron_disabled ) :
+            ?>
+                <div class="notice notice-error inline"><p>
+                    <strong>DISABLE_WP_CRON is set to true in wp-config.php.</strong><br>
+                    WordPress will never run scheduled events automatically. You must trigger
+                    <code>wp-cron.php</code> via a real system cron job (see below).
+                </p></div>
+            <?php elseif ( ! $next_ts ) : ?>
+                <div class="notice notice-error inline"><p>
+                    <strong>No cron event is scheduled.</strong> Save Settings to reschedule.
+                </p></div>
+            <?php elseif ( $next_ts < $now ) :
+                $overdue_mins = round( ( $now - $next_ts ) / 60 );
+            ?>
+                <div class="notice notice-warning inline"><p>
+                    <strong>Cron event is overdue by <?php echo (int) $overdue_mins; ?> minute(s).</strong><br>
+                    WP-Cron only fires when someone visits this site — on a low-traffic or local site it may
+                    never trigger automatically. Loading this admin page calls <code>spawn_cron()</code> to
+                    kick it off, but for reliable scheduling you should add a real system cron (see below).
+                </p></div>
+            <?php else :
+                $in_mins = round( ( $next_ts - $now ) / 60 );
+            ?>
+                <div class="notice notice-success inline"><p>
+                    Cron is scheduled and on time. Next run in approximately <strong><?php echo (int) $in_mins; ?> minute(s)</strong>
+                    (<?php echo esc_html( wp_date( 'Y-m-d H:i:s', $next_ts ) ); ?>).
+                </p></div>
+            <?php endif; ?>
+
+            <details style="margin-top:12px;">
+                <summary style="cursor:pointer;font-weight:600;">Real system cron setup (recommended for production &amp; local)</summary>
+                <div style="background:#f6f7f7;border:1px solid #ddd;padding:12px 16px;margin-top:8px;max-width:800px;">
+                    <p>Add one of these to your system scheduler to replace WP-Cron with a reliable trigger:</p>
+                    <p><strong>Linux / macOS (crontab -e):</strong></p>
+                    <code>*/15 * * * * curl -s <?php echo esc_url( site_url('wp-cron.php?doing_wp_cron') ); ?> &gt; /dev/null 2&gt;&amp;1</code>
+                    <p style="margin-top:10px;"><strong>Windows Task Scheduler:</strong> Create a task that runs every 15 minutes executing:</p>
+                    <code>curl -s "<?php echo esc_url( site_url('wp-cron.php?doing_wp_cron') ); ?>"</code>
+                    <p style="margin-top:10px;">Also add this line to your <code>wp-config.php</code> to prevent WP from spawning its own cron on page load (optional but cleaner):</p>
+                    <code>define( 'DISABLE_WP_CRON', true );</code>
+                </div>
+            </details>
 
             <hr>
 
