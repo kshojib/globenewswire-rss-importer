@@ -21,6 +21,7 @@ class GNW_Importer {
         add_action('update_option_gnw_cron_schedule', [$this, 'reschedule_cron'], 10, 2);
         add_action('admin_post_gnw_clear_log',           [$this, 'clear_log']);
         add_action('admin_init',                         [$this, 'maybe_spawn_cron']);
+        add_action('add_meta_boxes',                     [$this, 'register_meta_box']);
 
         $this->maybe_schedule_cron();
     }
@@ -206,6 +207,15 @@ class GNW_Importer {
                 update_post_meta( $post_id, '_gnw_guid',       $guid );
                 update_post_meta( $post_id, '_gnw_source_url', $link );
 
+                // Per-post import record
+                update_post_meta( $post_id, '_gnw_import_info', [
+                    'imported_at'  => time(),
+                    'feed_url'     => $this->get_feed_url(),
+                    'trigger'      => ( wp_doing_cron() ? 'cron' : 'manual' ),
+                    'source_url'   => $link,
+                    'guid'         => $guid,
+                ] );
+
                 // Page Links To integration
                 update_post_meta( $post_id, '_links_to',                $link );
                 update_post_meta( $post_id, '_links_to_target',         'custom' );
@@ -221,6 +231,49 @@ class GNW_Importer {
             $imported,
             $skipped
         );
+    }
+
+    // -------------------------------------------------------------------------
+    // PER-POST META BOX
+    // -------------------------------------------------------------------------
+
+    public function register_meta_box() {
+        add_meta_box(
+            'gnw_import_info',
+            'GlobeNewswire Import Info',
+            [$this, 'render_meta_box'],
+            'press-releases',
+            'side',
+            'default'
+        );
+    }
+
+    public function render_meta_box( $post ) {
+        $info = get_post_meta( $post->ID, '_gnw_import_info', true );
+
+        if ( empty($info) ) {
+            echo '<p style="color:#888;font-style:italic;">This post was not imported by the GlobeNewswire importer.</p>';
+            return;
+        }
+
+        $trigger_label = ( $info['trigger'] === 'cron' ) ? 'Automatic (cron)' : 'Manual';
+        $rows = [
+            'Imported at' => wp_date( 'Y-m-d H:i:s', $info['imported_at'] ),
+            'Trigger'     => $trigger_label,
+            'Source URL'  => '<a href="' . esc_url( $info['source_url'] ) . '" target="_blank" rel="noopener">' . esc_html( $info['source_url'] ) . '</a>',
+            'Feed URL'    => '<a href="' . esc_url( $info['feed_url'] ) . '" target="_blank" rel="noopener">View Feed</a>',
+            'GUID'        => '<code style="word-break:break-all;font-size:11px;">' . esc_html( $info['guid'] ) . '</code>',
+        ];
+        ?>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <?php foreach ( $rows as $label => $value ) : ?>
+            <tr>
+                <td style="padding:4px 6px 4px 0;color:#666;vertical-align:top;white-space:nowrap;"><?php echo esc_html( $label ); ?></td>
+                <td style="padding:4px 0;word-break:break-word;"><?php echo $value; ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </table>
+        <?php
     }
 
     // -------------------------------------------------------------------------
